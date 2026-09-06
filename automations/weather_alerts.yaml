@@ -17,6 +17,10 @@ actions:
       - conditions:
           - condition: trigger
             id: lightning
+          - condition: template
+            value_template: >-
+              {{ this.attributes.last_triggered is none or
+                 (as_timestamp(now()) - as_timestamp(this.attributes.last_triggered)) > 60 }}
         sequence:
           - action: notify.mobile_app_b_wills_iphone
             metadata: {}

@@ -1,0 +1,118 @@
+alias: Weather Alerts - Lightning & Tornado Warning (32803)
+description: ''
+triggers:
+  - trigger: numeric_state
+    entity_id:
+      - sensor.home_lightning_distance
+    below: 11
+    id: lightning
+  - trigger: state
+    entity_id:
+      - sensor.nws_alerts_32803
+    id: tornado_warning
+conditions: []
+actions:
+  - choose:
+      # --- Lightning within 10 miles ---
+      - conditions:
+          - condition: trigger
+            id: lightning
+        sequence:
+          - action: notify.mobile_app_b_wills_iphone
+            metadata: {}
+            data:
+              title: WEATHER ALERT
+              message: ⚡️ Lightning detected within 10 miles of Home
+          - action: notify.mobile_app_karlas_iphone
+            metadata: {}
+            data:
+              title: WEATHER ALERT
+              message: ⚡️ Lightning detected within 10 miles of Home
+          - action: chime_tts.say
+            metadata: {}
+            target:
+              entity_id:
+                - media_player.lanai_north
+                - media_player.lanai_south
+            data:
+              chime_path: /config/www/custom_audio/alexa_notification.mp3
+              volume_level: 0.6
+              join_players: true
+              announce: true
+          - action: tts.cloud_say
+            metadata: {}
+            data:
+              cache: false
+              entity_id: media_player.lanai_north
+              message: Lightning has been detected within 10 miles! Please use caution.
+          - action: tts.cloud_say
+            metadata: {}
+            data:
+              cache: false
+              entity_id: media_player.lanai_south
+              message: Lightning has been detected within 10 miles! Please use caution.
+
+      # --- Tornado Warning issued for 32803 (Orange County, FL) ---
+      - conditions:
+          - condition: trigger
+            id: tornado_warning
+          - condition: template
+            value_template: >-
+              {{ 'Tornado Warning' in (state_attr('sensor.nws_alerts_32803', 'alerts') | string) }}
+        sequence:
+          - action: notify.mobile_app_b_wills_iphone
+            metadata: {}
+            data:
+              title: 🚨 TORNADO WARNING - 32803
+              message: >-
+                A Tornado Warning has been issued for the 32803 area. Take
+                shelter immediately.
+              data:
+                push:
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1.0
+                  interruption-level: critical
+          - action: notify.mobile_app_karlas_iphone
+            metadata: {}
+            data:
+              title: 🚨 TORNADO WARNING - 32803
+              message: >-
+                A Tornado Warning has been issued for the 32803 area. Take
+                shelter immediately.
+              data:
+                push:
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1.0
+                  interruption-level: critical
+          - action: chime_tts.say
+            metadata: {}
+            target:
+              entity_id:
+                - media_player.lanai_north
+                - media_player.lanai_south
+            data:
+              chime_path: /config/www/custom_audio/alexa_notification.mp3
+              volume_level: 0.6
+              join_players: true
+              announce: true
+          - action: tts.cloud_say
+            metadata: {}
+            data:
+              cache: false
+              entity_id: media_player.lanai_north
+              message: >-
+                A tornado warning has been issued for the 32803 area. Please
+                take shelter immediately.
+          - action: tts.cloud_say
+            metadata: {}
+            data:
+              cache: false
+              entity_id: media_player.lanai_south
+              message: >-
+                A tornado warning has been issued for the 32803 area. Please
+                take shelter immediately.
+mode: single

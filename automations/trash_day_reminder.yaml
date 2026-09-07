@@ -1,0 +1,33 @@
+alias: Trash Day Reminder
+description: >-
+  Reminds the household the night before trash/recycling collection, sourced
+  from the municipal ReCollect pickup calendar (see README for calendar
+  setup).
+triggers:
+  - trigger: calendar
+    entity_id: calendar.garbage
+    event: start
+    offset: "-04:01:00"
+conditions: []
+actions:
+  - action: chime_tts.say
+    metadata: {}
+    target:
+      entity_id: media_player.kitchen
+    data:
+      chime_path: /config/www/custom_audio/alexa_notification.mp3
+  - action: tts.cloud_say
+    metadata: {}
+    data:
+      cache: false
+      entity_id: media_player.kitchen
+      message: Tomorrow is trash day. Don't forget to take the trash to the curb!
+  - action: notify.mobile_app_b_wills_iphone
+    metadata: {}
+    data:
+      message: '🗑️ REMINDER: Don''t forget to take the trash to the curb!'
+  - action: notify.mobile_app_karlas_iphone
+    metadata: {}
+    data:
+      message: '🗑️ REMINDER: Don''t forget to take the trash to the curb!'
+mode: single

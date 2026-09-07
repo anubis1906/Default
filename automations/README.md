@@ -36,3 +36,59 @@ only that the alert's event name shows up somewhere in it.
   they can break through Focus/Do Not Disturb — this requires the
   [critical alerts entitlement](https://companion.home-assistant.io/docs/notifications/critical-notifications/)
   to be enabled for the Home Assistant Companion app on each phone.
+
+---
+
+# Trash Day Reminder Automation
+
+`trash_day_reminder.yaml` announces and pushes a reminder the night before
+trash/recycling pickup, timed off a `calendar` trigger.
+
+## Prerequisite: `calendar.garbage`
+
+The automation triggers off `calendar.garbage`, which is **not built in** —
+it has to be created by importing the municipal collection calendar feed:
+
+```
+webcal://api.recollect.net/api/places/C9691F10-E76C-11E8-B864-D2D0B33ECFC0/services/675/events.en-US.ics?client_id=518A7958-AAD2-11F1-9E3B-B6C0F8F98153
+```
+
+`webcal://` is just a hint to a calendar client to fetch over HTTPS — swap
+the scheme before giving the URL to Home Assistant:
+
+```
+https://api.recollect.net/api/places/C9691F10-E76C-11E8-B864-D2D0B33ECFC0/services/675/events.en-US.ics?client_id=518A7958-AAD2-11F1-9E3B-B6C0F8F98153
+```
+
+Set it up with either:
+
+1. **Core "Remote Calendar" integration** (Settings → Devices & Services →
+   Add Integration → *Remote Calendar*, available since HA 2025.2). Paste
+   the `https://` URL above and name the calendar **`Garbage`** so Home
+   Assistant generates the entity ID `calendar.garbage` (rename the entity
+   afterwards, or update this automation's `entity_id`, if you use a
+   different name).
+2. **`ics_calendar` custom integration** (HACS: `essandess/ha-ics-calendar`)
+   if you want the source configured directly in YAML, e.g. in
+   `configuration.yaml`:
+
+   ```yaml
+   calendar:
+     - platform: ics_calendar
+       calendars:
+         - name: "Garbage"
+           url: "https://api.recollect.net/api/places/C9691F10-E76C-11E8-B864-D2D0B33ECFC0/services/675/events.en-US.ics?client_id=518A7958-AAD2-11F1-9E3B-B6C0F8F98153"
+   ```
+
+Confirm in **Developer Tools → States** that `calendar.garbage` appears and,
+once the integration polls the feed, shows the next pickup as its upcoming
+event.
+
+## How it works
+
+- `trigger: calendar`, `event: start`, `offset: "-04:01:00"` — ReCollect
+  publishes pickup days as all-day events (event "start" = midnight of
+  collection day), so an offset of 4 hours and 1 minute *before* that
+  fires the automation at **7:59 PM the evening before** pickup.
+- Actions chime the kitchen speaker, announce "Tomorrow is trash day..." via
+  TTS, and push a 🗑️ reminder notification to both phones.

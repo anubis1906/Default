@@ -1,3 +1,19 @@
+# Pool Light Automations
+
+The original single "Pool Light" automation turned the light on at sunset,
+then used `wait_for_trigger` to sit idle until sunrise before turning it back
+off. That meant one automation run spanned all night, which makes it harder
+to reason about, edit, or manually re-trigger either half independently.
+
+It's now split into two independent automations:
+
+- `pool_light_on.yaml` — triggers at sunset and turns the pool light on.
+- `pool_light_off.yaml` — triggers at sunrise and turns the pool light off.
+
+Each keeps the original device/entity IDs and can be imported into Home
+Assistant separately (Settings → Automations → Create Automation → Edit in
+YAML, then paste).
+
 # Weather Alerts Automation
 
 `weather_alerts.yaml` extends the original lightning-detector automation with a

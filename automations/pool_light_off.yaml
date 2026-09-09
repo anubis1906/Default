@@ -1,0 +1,13 @@
+alias: Pool Light Off
+description: Turns off the pool light at sunrise
+triggers:
+  - trigger: sun
+    event: sunrise
+    offset: 0
+conditions: []
+actions:
+  - type: turn_off
+    device_id: 16f000549e737a71773c7a3642c892f1
+    entity_id: 21f1e5efc7dfa13f2c9e7dec82dd507d
+    domain: light
+mode: single

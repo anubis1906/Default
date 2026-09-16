@@ -1,0 +1,100 @@
+alias: Nest Thermostat - Eco When Away & Smart Schedule
+description: >-
+  Switches the Nest to Eco mode whenever the house is empty, and otherwise
+  keeps it on a target temperature that shifts with time of day, outdoor
+  temperature, and outdoor dew point.
+triggers:
+  - trigger: state
+    entity_id:
+      - person.b_will
+      - person.karla
+    to: not_home
+    for: "00:10:00"
+    id: left_home
+  - trigger: state
+    entity_id:
+      - person.b_will
+      - person.karla
+    to: home
+    id: arrived_home
+  - trigger: time_pattern
+    minutes: /30
+    id: schedule_tick
+  - trigger: state
+    entity_id:
+      - sensor.outdoor_dew_point
+      - sensor.outdoor_temperature
+    id: conditions_changed
+conditions: []
+actions:
+  - choose:
+      # --- Nobody home: drop to Eco and stop managing the setpoint ---
+      - conditions:
+          - condition: trigger
+            id: left_home
+          - condition: state
+            entity_id:
+              - person.b_will
+              - person.karla
+            state: not_home
+            match: all
+        sequence:
+          - action: climate.set_preset_mode
+            target:
+              entity_id: climate.nest_thermostat
+            data:
+              preset_mode: eco
+          - action: notify.mobile_app_b_wills_iphone
+            metadata: {}
+            data:
+              title: 🌡️ Nest set to Eco
+              message: Everyone's away — the thermostat switched to Eco mode.
+          - action: notify.mobile_app_karlas_iphone
+            metadata: {}
+            data:
+              title: 🌡️ Nest set to Eco
+              message: Everyone's away — the thermostat switched to Eco mode.
+
+      # --- Someone's home: keep Eco off and follow the schedule ---
+      - conditions:
+          - condition: trigger
+            id:
+              - arrived_home
+              - schedule_tick
+              - conditions_changed
+          - condition: state
+            entity_id:
+              - person.b_will
+              - person.karla
+            state: home
+            match: any
+        sequence:
+          - variables:
+              hour: "{{ now().hour }}"
+              outdoor_temp: "{{ states('sensor.outdoor_temperature') | float(80) }}"
+              dew_point: "{{ states('sensor.outdoor_dew_point') | float(65) }}"
+              base_temp: >-
+                {% if hour >= 22 or hour < 6 %}
+                  74
+                {% elif hour >= 6 and hour < 9 %}
+                  72
+                {% elif hour >= 9 and hour < 17 %}
+                  76
+                {% else %}
+                  75
+                {% endif %}
+              dew_point_adjustment: "{{ -1 if dew_point > 68 else (1 if dew_point < 55 else 0) }}"
+              outdoor_adjustment: "{{ 1 if outdoor_temp < 78 else (-1 if outdoor_temp > 92 else 0) }}"
+              target_temp: >-
+                {{ [[base_temp | float + dew_point_adjustment | float + outdoor_adjustment | float, 68] | max, 78] | min }}
+          - action: climate.set_preset_mode
+            target:
+              entity_id: climate.nest_thermostat
+            data:
+              preset_mode: none
+          - action: climate.set_temperature
+            target:
+              entity_id: climate.nest_thermostat
+            data:
+              temperature: "{{ target_temp }}"
+mode: single

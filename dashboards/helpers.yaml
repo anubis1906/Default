@@ -1,0 +1,11 @@
+# Helper used by the Rooms tabs on the dashboard.
+# Add to configuration.yaml (or create it in the UI: Settings → Devices &
+# services → Helpers → Create helper → Dropdown, with the same options).
+input_select:
+  dashboard_room_tab:
+    name: Dashboard room tab
+    icon: mdi:tab
+    options:
+      - Living
+      - Bedrooms & baths
+    initial: Living

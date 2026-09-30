@@ -1,0 +1,1142 @@
+# Home dashboard — glass-panel layout
+#
+# Paste this whole file into: Settings → Dashboards → (new dashboard) → ⋮ →
+# Edit dashboard → ⋮ → Raw configuration editor.
+#
+# Requires (HACS → Frontend): button-card, layout-card, card-mod.
+# See dashboards/README.md for the entity list to map to your own entities.
+
+button_card_templates:
+  # ------------------------------------------------------------------ base --
+  bare:
+    show_name: false
+    show_icon: false
+    show_state: false
+    show_label: false
+    tap_action:
+      action: none
+    hold_action:
+      action: none
+    styles:
+      card:
+        - background: none
+        - box-shadow: none
+        - border: none
+        - padding: 0
+        - overflow: visible
+        - cursor: default
+
+  # A white "glass" panel with a section header (title · subtitle · chevron)
+  # and a body. Header text comes from variables.title / variables.subtitle.
+  panel:
+    template: bare
+    variables:
+      title: ''
+      subtitle: ''
+      subtitle_color: '#6b6b6b'
+      chevron: true
+    custom_fields:
+      head: |
+        [[[
+          const sub = typeof variables.subtitle === 'string' ? variables.subtitle : '';
+          return `<div class="head">
+            <span class="t">${variables.title}</span>
+            <span class="s" style="color:${variables.subtitle_color}">${sub}</span>
+            ${variables.chevron ? '<span class="chev"><ha-icon icon="mdi:chevron-right"></ha-icon></span>' : ''}
+          </div>`;
+        ]]]
+    styles:
+      card:
+        - background: rgba(255,255,255,0.72)
+        - border: 1px solid rgba(255,255,255,0.9)
+        - border-radius: 26px
+        - box-shadow: 0 10px 30px rgba(120,100,60,0.08)
+        - backdrop-filter: blur(14px)
+        - padding: 18px
+        - height: 100%
+        - box-sizing: border-box
+      grid:
+        - grid-template-areas: '"head" "body"'
+        - grid-template-columns: 1fr
+        - grid-template-rows: min-content 1fr
+        - align-items: start
+      custom_fields:
+        head:
+          - width: 100%
+        body:
+          - width: 100%
+          - align-self: stretch
+    extra_styles: |
+      :host { --ink: #1c1c1c; --muted: #8a8a8a; --line: rgba(0,0,0,0.06); }
+      .head { display:flex; align-items:center; gap:10px; margin-bottom:14px; min-height:36px; }
+      .head .t { font-size:12px; font-weight:600; letter-spacing:.12em; color:#555; text-transform:uppercase; white-space:nowrap; }
+      .head .s { font-size:12px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+      .head .chev { width:34px; height:34px; border-radius:11px; background:#fff; border:1px solid var(--line);
+                    display:flex; align-items:center; justify-content:center; margin-left:auto; flex:none; }
+      .head .chev ha-icon { --mdc-icon-size:18px; color:#444; }
+      .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px;
+              font-size:12px; font-weight:500; background:#fff; border:1px solid var(--line); color:#333; }
+      .pill ha-icon { --mdc-icon-size:14px; }
+
+  # -------------------------------------------------------- quick actions --
+  # variables.active: boolean, variables.accent: hex, variables.tint: rgba
+  qa_tile:
+    show_icon: true
+    show_name: true
+    show_label: true
+    show_state: false
+    variables:
+      active: false
+      accent: '#1e88e5'
+      tint: 'rgba(30,136,229,0.12)'
+    styles:
+      card:
+        - border-radius: 18px
+        - padding: 12px
+        - height: 92px
+        - box-sizing: border-box
+        - box-shadow: none
+        - background: |
+            [[[ return variables.active ? `linear-gradient(160deg, ${variables.tint}, rgba(255,255,255,0.6))` : 'rgba(255,255,255,0.65)'; ]]]
+        - border: |
+            [[[ return variables.active ? `1.5px solid ${variables.accent}66` : '1px solid rgba(0,0,0,0.06)'; ]]]
+      grid:
+        - grid-template-areas: '"i" "n" "l"'
+        - grid-template-rows: 34px min-content min-content
+        - justify-items: start
+      img_cell:
+        - width: 34px
+        - height: 34px
+        - border-radius: 10px
+        - justify-self: start
+        - background: |
+            [[[ return variables.active ? variables.accent : 'rgba(0,0,0,0.04)'; ]]]
+      icon:
+        - width: 18px
+        - color: |
+            [[[ return variables.active ? '#fff' : '#555'; ]]]
+      name:
+        - font-size: 13px
+        - font-weight: 600
+        - color: '#1c1c1c'
+        - margin-top: 8px
+        - justify-self: start
+      label:
+        - font-size: 11px
+        - justify-self: start
+        - color: |
+            [[[ return variables.active ? variables.accent : '#8a8a8a'; ]]]
+
+  # ---------------------------------------------------------------- rooms --
+  # entity: a light (or light group), cover, etc.
+  # variables.temp: temperature sensor, variables.media: media_player for "TV on"
+  room_tile:
+    show_icon: true
+    show_name: true
+    show_label: true
+    show_state: false
+    variables:
+      temp: ''
+      media: ''
+    tap_action:
+      action: toggle
+    hold_action:
+      action: more-info
+    label: |
+      [[[
+        if (!entity) return 'Not set up';
+        const t = states[variables.temp];
+        const temp = t && !isNaN(parseFloat(t.state)) ? `${Math.round(parseFloat(t.state))}° · ` : '';
+        const domain = entity.entity_id.split('.')[0];
+        if (domain === 'cover') return `${temp}Door ${entity.state}`;
+        const m = states[variables.media];
+        if (m && ['on', 'playing', 'paused', 'idle'].includes(m.state) && entity.state !== 'on') return `${temp}TV on`;
+        if (entity.state !== 'on') return `${temp}Off`;
+        const ids = entity.attributes.entity_id;
+        if (Array.isArray(ids)) {
+          const n = ids.filter(e => states[e] && states[e].state === 'on').length;
+          return `${temp}${n} light${n === 1 ? '' : 's'}`;
+        }
+        return `${temp}On`;
+      ]]]
+    custom_fields:
+      bulb: |
+        [[[
+          const domain = entity ? entity.entity_id.split('.')[0] : '';
+          if (domain === 'cover') return '';
+          return `<ha-icon icon="${entity && entity.state === 'on' ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline'}"></ha-icon>`;
+        ]]]
+    styles:
+      card:
+        - border-radius: 18px
+        - padding: 12px 12px 12px 14px
+        - height: 84px
+        - box-sizing: border-box
+        - box-shadow: none
+        - background: |
+            [[[ return entity && entity.state === 'on' ? 'linear-gradient(160deg, rgba(245,178,60,0.16), rgba(255,255,255,0.7))' : 'rgba(255,255,255,0.65)'; ]]]
+        - border: |
+            [[[ return entity && entity.state === 'on' ? '1.5px solid rgba(232,163,61,0.45)' : '1px solid rgba(0,0,0,0.06)'; ]]]
+      grid:
+        - grid-template-areas: '"i n bulb" "i l bulb"'
+        - grid-template-columns: 40px 1fr 44px
+        - grid-template-rows: 1fr 1fr
+        - column-gap: 10px
+      img_cell:
+        - width: 36px
+        - height: 36px
+        - border-radius: 10px
+        - background: |
+            [[[ return entity && entity.state === 'on' ? 'rgba(245,178,60,0.18)' : 'rgba(0,0,0,0.04)'; ]]]
+      icon:
+        - width: 18px
+        - color: |
+            [[[ return entity && entity.state === 'on' ? '#c77d12' : '#555'; ]]]
+      name:
+        - justify-self: start
+        - align-self: end
+        - font-size: 13px
+        - font-weight: 600
+        - color: '#1c1c1c'
+        - text-align: left
+        - white-space: normal
+      label:
+        - justify-self: start
+        - align-self: start
+        - font-size: 11px
+        - color: |
+            [[[ return entity && entity.state === 'on' ? '#c77d12' : '#8a8a8a'; ]]]
+      custom_fields:
+        bulb:
+          - width: 40px
+          - height: 40px
+          - border-radius: 12px
+          - display: |
+              [[[ return entity && entity.entity_id.startsWith('cover.') ? 'none' : 'flex'; ]]]
+          - align-items: center
+          - justify-content: center
+          - --mdc-icon-size: 18px
+          - background: |
+              [[[ return entity && entity.state === 'on' ? 'linear-gradient(160deg,#f7c04a,#ee9b1f)' : '#fff'; ]]]
+          - color: |
+              [[[ return entity && entity.state === 'on' ? '#fff' : '#888'; ]]]
+          - border: 1px solid rgba(0,0,0,0.06)
+
+  room_tab:
+    entity: input_select.dashboard_room_tab
+    show_icon: false
+    show_state: false
+    show_label: false
+    variables:
+      option: Living
+      lights: []
+    name: |
+      [[[
+        const n = variables.lights.filter(e => states[e] && states[e].state === 'on').length;
+        return `${variables.option}${n ? ` <span class="badge">${n}</span>` : ''}`;
+      ]]]
+    styles:
+      card:
+        - border-radius: 12px
+        - padding: 9px
+        - box-shadow: |
+            [[[ return entity && entity.state === variables.option ? '0 2px 8px rgba(0,0,0,0.08)' : 'none'; ]]]
+        - background: |
+            [[[ return entity && entity.state === variables.option ? '#fff' : 'transparent'; ]]]
+        - border: none
+      name:
+        - font-size: 13px
+        - font-weight: 500
+        - color: '#333'
+    extra_styles: |
+      .badge { display:inline-block; min-width:16px; padding:0 5px; margin-left:6px; border-radius:8px;
+               background:rgba(245,178,60,0.22); color:#b36b00; font-size:11px; line-height:16px; }
+
+  media_btn:
+    show_name: false
+    show_state: false
+    styles:
+      card:
+        - width: 44px
+        - height: 44px
+        - border-radius: 50%
+        - padding: 0
+        - background: '#fff'
+        - border: 1px solid rgba(0,0,0,0.06)
+        - box-shadow: none
+      icon:
+        - width: 20px
+        - color: '#333'
+
+views:
+  - title: Home
+    path: home
+    icon: mdi:home
+    type: custom:grid-layout
+    background: 'center / cover no-repeat fixed linear-gradient(135deg, #fbf3dc 0%, #f7f5ea 40%, #eaf3ee 100%)'
+    layout:
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)
+      grid-template-rows: auto
+      grid-template-areas: |
+        "header  header  header"
+        "energy  actions calendar"
+        "energy  rooms   car"
+        "weather rooms   music"
+      grid-gap: 16px
+      padding: 8px 16px 16px
+      max-width: 1400px
+      margin: 0 auto
+      mediaquery:
+        '(max-width: 1100px)':
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
+          grid-template-areas: |
+            "header  header"
+            "actions actions"
+            "energy  calendar"
+            "energy  car"
+            "rooms   rooms"
+            "weather music"
+        '(max-width: 700px)':
+          grid-template-columns: minmax(0, 1fr)
+          grid-template-areas: |
+            "header"
+            "actions"
+            "energy"
+            "rooms"
+            "calendar"
+            "car"
+            "weather"
+            "music"
+    cards:
+      # ============================================================ HEADER ==
+      - type: custom:button-card
+        template: bare
+        view_layout:
+          grid-area: header
+        # sensor.time (Time & Date integration) makes the clock tick every minute
+        triggers_update: all
+        variables:
+          people:
+            - person.b_will
+            - person.karla
+          weather: weather.home
+          alerts: sensor.nws_alerts_32803
+          lightning: sensor.home_lightning_distance
+        custom_fields:
+          greet: |
+            [[[
+              const h = new Date().getHours();
+              const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+              const name = user && user.name ? user.name.split(' ')[0] : '';
+              return `${g}${name ? ', ' + name : ''}`;
+            ]]]
+          date: |
+            [[[ return new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }); ]]]
+          pills: |
+            [[[
+              const people = variables.people.map(p => {
+                const s = states[p];
+                if (!s) return '';
+                const name = s.attributes.friendly_name || p.split('.')[1];
+                const pic = s.attributes.entity_picture;
+                const home = s.state === 'home';
+                return `<div class="av" title="${name}: ${s.state}" style="opacity:${home ? 1 : 0.45}">
+                          ${pic ? `<img src="${pic}">` : name[0].toUpperCase()}</div>`;
+              }).join('');
+
+              const w = states[variables.weather];
+              let weather = '';
+              if (w) {
+                const map = { partlycloudy: 'partly-cloudy', 'clear-night': 'night', exceptional: 'alert' };
+                const icon = `mdi:weather-${map[w.state] || w.state}`;
+                const label = w.state === 'partlycloudy' ? 'Partly cloudy'
+                  : w.state.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
+                weather = `<div class="pill"><ha-icon icon="${icon}" style="color:#f0a020"></ha-icon>
+                             <b>${Math.round(w.attributes.temperature)}°</b><span class="dim">${label}</span></div>`;
+              }
+
+              // NWS alerts: state is the number of active alerts
+              const a = states[variables.alerts];
+              const count = a ? parseInt(a.state) || 0 : 0;
+              let status;
+              if (count > 0) {
+                const list = a.attributes.alerts;
+                const first = Array.isArray(list) && list.length
+                  ? (list[0].event || list[0].title || 'Weather alert') : 'Weather alert';
+                const severe = /tornado|hurricane/i.test(JSON.stringify(list || ''));
+                status = `<div class="pill" style="background:${severe ? '#fdecea' : '#fff4e0'};border-color:${severe ? '#f3b8b0' : '#f3d9a8'}">
+                            <span class="dot" style="background:${severe ? '#e53935' : '#f39c12'}"></span>
+                            <b>${first}${count > 1 ? ` +${count - 1}` : ''}</b></div>`;
+              } else {
+                status = `<div class="pill"><span class="dot" style="background:#2eaa5c"></span><b>All systems normal</b></div>`;
+              }
+
+              const l = states[variables.lightning];
+              const dist = l ? parseFloat(l.state) : NaN;
+              const near = !isNaN(dist) && dist < 11;
+              const bolt = `<div class="pill ${near ? 'warn' : ''}" title="Nearest lightning">
+                              <ha-icon icon="mdi:weather-lightning"></ha-icon>
+                              ${isNaN(dist) ? '—' : `${Math.round(dist)} mi`}</div>`;
+
+              return `<div class="row"><div class="pill people">${people}</div>${weather}${status}${bolt}</div>`;
+            ]]]
+          clock: |
+            [[[
+              const d = new Date();
+              return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
+            ]]]
+        styles:
+          grid:
+            - grid-template-areas: '"greet pills clock" "date pills clock"'
+            - grid-template-columns: auto 1fr auto
+            - column-gap: 18px
+            - padding: 8px 4px
+          custom_fields:
+            greet:
+              - justify-self: start
+              - font-size: 30px
+              - font-weight: 800
+              - letter-spacing: -0.02em
+              - color: '#1c1c1c'
+            date:
+              - justify-self: start
+              - font-size: 14px
+              - color: '#555'
+            pills:
+              - justify-self: end
+              - align-self: center
+            clock:
+              - align-self: center
+              - font-size: 36px
+              - font-weight: 800
+              - letter-spacing: -0.02em
+              - color: '#1c1c1c'
+        extra_styles: |
+          .row { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; align-items:center; }
+          .pill { display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 16px; box-sizing:border-box;
+                  border-radius:14px; background:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.95);
+                  box-shadow:0 4px 14px rgba(120,100,60,0.08); font-size:14px; color:#1c1c1c; }
+          .pill b { font-weight:600; }
+          .pill .dim { color:#666; }
+          .pill ha-icon { --mdc-icon-size:20px; }
+          .pill.warn { background:#fff4e0; color:#b36b00; }
+          .dot { width:9px; height:9px; border-radius:50%; }
+          .people { padding:0 10px; gap:0; }
+          .av { width:28px; height:28px; border-radius:50%; margin-left:-6px; border:2px solid #fff; background:#e9e4f5;
+                color:#555; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+          .av:first-child { margin-left:0; }
+          .av img { width:100%; height:100%; object-fit:cover; }
+          @media (max-width: 700px) {
+            .row { justify-content:flex-start; }
+          }
+
+      # ======================================================= HOME ENERGY ==
+      - type: custom:button-card
+        template: panel
+        view_layout:
+          grid-area: energy
+        triggers_update: all
+        tap_action:
+          action: navigate
+          navigation_path: /energy
+        variables:
+          title: Home energy
+          # --- live power (W). grid: + import / − export. battery: + charging / − discharging
+          solar_power: sensor.solar_power
+          grid_power: sensor.grid_power
+          home_power: sensor.home_power
+          battery_level: sensor.battery_level
+          battery_power: sensor.battery_power
+          car_battery: sensor.car_battery_level
+          car_charging: binary_sensor.car_charging
+          # --- today's totals (kWh)
+          solar_today: sensor.solar_energy_today
+          used_today: sensor.home_energy_today
+          grid_in_today: sensor.grid_import_today
+          export_today: sensor.grid_export_today
+          rate: 0.14
+          currency: $
+          subtitle: |
+            [[[
+              const n = id => { const s = states[id]; const v = s ? parseFloat(s.state) : NaN; return isNaN(v) ? null : v; };
+              const used = n(variables.used_today), gin = n(variables.grid_in_today);
+              if (!used || gin === null) return '';
+              return `${Math.max(0, Math.round((1 - gin / used) * 100))}% self-powered today`;
+            ]]]
+        custom_fields:
+          body: |
+            [[[
+              const n = id => { const s = states[id]; const v = s ? parseFloat(s.state) : NaN; return isNaN(v) ? null : v; };
+              const pw = v => v === null ? '—'
+                : Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}<small>kW</small>`
+                : `${Math.round(Math.abs(v))}<small>W</small>`;
+              const kwh = v => v === null ? '—' : `${v.toFixed(1)}<small>kWh</small>`;
+
+              const solar = n(variables.solar_power), grid = n(variables.grid_power), home = n(variables.home_power);
+              const soc = n(variables.battery_level), bp = n(variables.battery_power), car = n(variables.car_battery);
+              const cs = states[variables.car_charging];
+              const carChg = cs && ['on', 'charging'].includes(cs.state);
+
+              const solarOn = solar !== null && solar > 20;
+              const gridIn = grid !== null && grid > 20, gridOut = grid !== null && grid < -20;
+              const batIn = bp !== null && bp > 20, batOut = bp !== null && bp < -20;
+
+              const line = (x1, y1, x2, y2, color, on) =>
+                `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${on ? color : '#dcdcdc'}" stroke-width="3"
+                       ${on ? 'stroke-dasharray="6 6" class="flow"' : ''}/>`;
+              const node = (x, y, d, ring, html) =>
+                `<div class="node" style="left:${x - d / 2}px;top:${y - d / 2}px;width:${d}px;height:${d}px;border-color:${ring}">${html}</div>`;
+              const lbl = (x, y, t, s, c, align) =>
+                `<div class="lbl" style="left:${align === 'left' ? x : x - 50}px;top:${y}px;text-align:${align || 'center'}">
+                   <b>${t}</b><span style="color:${c || '#666'}">${s}</span></div>`;
+
+              const svg = `<svg viewBox="0 0 300 290" width="300" height="290">
+                ${line(150, 42, 150, 130, '#e8a33d', solarOn)}
+                ${line(42, 130, 150, 130, '#7a8a99', gridIn || gridOut)}
+                ${line(150, 130, 258, 130, '#2eaa5c', batIn || batOut)}
+                ${line(150, 130, 150, 222, '#3a8ee6', carChg)}
+              </svg>`;
+
+              const nodes = [
+                node(150, 42, 62, solarOn ? '#e8a33d' : '#ddd',
+                  `<ha-icon icon="mdi:white-balance-sunny" style="color:#e8a33d"></ha-icon><span class="v">${pw(solar)}</span>`),
+                lbl(186, 22, 'SOLAR', solarOn ? 'Producing' : 'Idle', solarOn ? '#c77d12' : '#888', 'left'),
+
+                node(42, 130, 60, gridIn ? '#7a8a99' : gridOut ? '#2eaa5c' : '#ddd',
+                  `<ha-icon icon="mdi:transmission-tower"></ha-icon><span class="v">${pw(grid)}</span>`),
+                lbl(42, 164, 'GRID', gridIn ? 'Importing' : gridOut ? 'Exporting' : 'Idle'),
+
+                node(150, 130, 96, '#3a8ee6',
+                  `<ha-icon icon="mdi:home-outline" style="color:#3a8ee6"></ha-icon><span class="v big">${pw(home)}</span><span class="cap">HOME</span>`),
+
+                node(258, 130, 60, batIn || batOut ? '#2eaa5c' : '#ddd',
+                  `<ha-icon icon="mdi:battery-high"></ha-icon><span class="v">${soc === null ? '—' : Math.round(soc)}<small>%</small></span>`),
+                lbl(258, 164, 'BATTERY', batIn ? `Charging ${pw(bp)}` : batOut ? `Discharging ${pw(bp)}` : 'Idle',
+                  batIn ? '#2eaa5c' : batOut ? '#c77d12' : '#888'),
+
+                node(150, 222, 58, carChg ? '#3a8ee6' : '#ddd',
+                  `<ha-icon icon="mdi:car-hatchback"></ha-icon><span class="v">${car === null ? '—' : Math.round(car)}<small>%</small></span>`),
+                lbl(150, 254, 'CAR', carChg ? 'Charging' : 'Not charging', carChg ? '#3a8ee6' : '#888'),
+              ].join('');
+
+              const gin = n(variables.grid_in_today);
+              const cost = gin === null ? '' : `<em>≈ ${variables.currency}${(gin * variables.rate).toFixed(2)}</em>`;
+              const stat = (t, v, extra) => `<div class="stat"><span>${t}</span><b>${v}</b>${extra || ''}</div>`;
+              const stats = `<div class="stats">
+                ${stat('SOLAR', kwh(n(variables.solar_today)))}
+                ${stat('USED', kwh(n(variables.used_today)))}
+                ${stat('GRID IN', kwh(gin), cost)}
+                ${stat('EXPORT', kwh(n(variables.export_today)))}
+              </div>`;
+
+              return `<div class="flowbox">${svg}${nodes}</div>${stats}`;
+            ]]]
+        extra_styles: |
+          .flowbox { position:relative; width:300px; height:290px; margin:0 auto; }
+          .flowbox svg { position:absolute; inset:0; }
+          .node { position:absolute; box-sizing:border-box; border:3px solid; border-radius:50%; background:#fff;
+                  box-shadow:0 0 0 5px rgba(255,255,255,0.9), 0 6px 16px rgba(0,0,0,0.06);
+                  display:flex; flex-direction:column; align-items:center; justify-content:center; color:#1c1c1c; }
+          .node ha-icon { --mdc-icon-size:16px; color:#888; }
+          .node .v { font-weight:700; font-size:15px; line-height:1.1; }
+          .node .v.big { font-size:22px; }
+          .node small { font-size:10px; font-weight:600; margin-left:1px; }
+          .node .cap { font-size:9px; letter-spacing:.12em; color:#3a8ee6; font-weight:600; }
+          .lbl { position:absolute; width:100px; font-size:10px; line-height:1.35; }
+          .lbl b { display:block; letter-spacing:.1em; color:#8a8a8a; font-weight:600; }
+          .lbl small { font-size:9px; }
+          .flow { animation: dash 1s linear infinite; }
+          @keyframes dash { to { stroke-dashoffset: -12; } }
+          .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:14px; }
+          .stat { background:rgba(0,0,0,0.03); border-radius:14px; padding:10px; text-align:left;
+                  display:flex; flex-direction:column; gap:2px; }
+          .stat span { font-size:10px; letter-spacing:.08em; color:#8a8a8a; font-weight:600; }
+          .stat b { font-size:17px; font-weight:700; color:#1c1c1c; }
+          .stat b small { font-size:10px; font-weight:600; color:#666; margin-left:2px; }
+          .stat em { font-style:normal; font-size:10px; color:#c0392b; }
+
+      # ============================================================ WEATHER ==
+      - type: weather-forecast
+        view_layout:
+          grid-area: weather
+        entity: weather.home
+        forecast_type: daily
+        show_current: true
+        show_forecast: true
+        card_mod:
+          style: |
+            ha-card {
+              background: rgba(255,255,255,0.72) !important;
+              border: 1px solid rgba(255,255,255,0.9) !important;
+              border-radius: 26px !important;
+              box-shadow: 0 10px 30px rgba(120,100,60,0.08) !important;
+              backdrop-filter: blur(14px);
+              padding: 6px 4px;
+              height: 100%;
+              box-sizing: border-box;
+              color: #1c1c1c;
+              --primary-text-color: #1c1c1c;
+              --secondary-text-color: #7a7a7a;
+            }
+            .forecast .day { background: rgba(0,0,0,0.03); border-radius: 14px; padding: 8px 2px; margin: 0 2px; }
+
+      # ====================================================== QUICK ACTIONS ==
+      - type: custom:button-card
+        template: panel
+        view_layout:
+          grid-area: actions
+        variables:
+          title: Quick actions
+          chevron: false
+        custom_fields:
+          body:
+            card:
+              type: grid
+              columns: 4
+              square: false
+              cards:
+                - type: custom:button-card
+                  template: qa_tile
+                  entity: script.good_morning
+                  name: Morning
+                  icon: mdi:weather-night
+                  label: '[[[ return entity && entity.state === "on" ? "Running…" : "Tap to run"; ]]]'
+                  variables:
+                    active: '[[[ return entity && entity.state === "on"; ]]]'
+                    accent: '#7e57c2'
+                    tint: rgba(126,87,194,0.14)
+                  tap_action:
+                    action: perform-action
+                    perform_action: script.turn_on
+                    target:
+                      entity_id: script.good_morning
+
+                - type: custom:button-card
+                  template: qa_tile
+                  name: Climate
+                  icon: mdi:air-conditioner
+                  triggers_update: all
+                  variables:
+                    climates:
+                      - climate.downstairs
+                      - climate.upstairs
+                    active: |
+                      [[[ return variables.climates.some(e => states[e] && !['off', 'unavailable'].includes(states[e].state)); ]]]
+                    accent: '#1e88e5'
+                    tint: rgba(30,136,229,0.14)
+                  label: |
+                    [[[
+                      const on = variables.climates.filter(e => states[e] && !['off', 'unavailable'].includes(states[e].state)).length;
+                      return `${on} of ${variables.climates.length} on`;
+                    ]]]
+                  tap_action:
+                    action: more-info
+                    entity: climate.downstairs
+
+                - type: custom:button-card
+                  template: qa_tile
+                  name: Lights
+                  icon: mdi:lightbulb-on-outline
+                  triggers_update: all
+                  variables:
+                    active: |
+                      [[[ return Object.keys(states).some(e => e.startsWith('light.') && states[e].state === 'on' && !states[e].attributes.entity_id); ]]]
+                    accent: '#e8a33d'
+                    tint: rgba(245,178,60,0.18)
+                  label: |
+                    [[[
+                      const n = Object.keys(states).filter(e => e.startsWith('light.') && states[e].state === 'on' && !states[e].attributes.entity_id).length;
+                      return n ? `${n} on` : 'All off';
+                    ]]]
+                  tap_action:
+                    action: perform-action
+                    perform_action: light.turn_off
+                    target:
+                      entity_id: all
+                    confirmation:
+                      text: Turn off every light in the house?
+
+                - type: custom:button-card
+                  template: qa_tile
+                  entity: switch.water_heater
+                  name: Water heater
+                  icon: mdi:water-boiler
+                  label: '[[[ return entity && entity.state === "on" ? "Heating" : "Off"; ]]]'
+                  variables:
+                    active: '[[[ return entity && entity.state === "on"; ]]]'
+                    accent: '#e5533d'
+                    tint: rgba(229,83,61,0.12)
+                  tap_action:
+                    action: toggle
+
+                - type: custom:button-card
+                  template: qa_tile
+                  entity: vacuum.robot_vacuum
+                  name: Vacuum
+                  icon: mdi:robot-vacuum
+                  label: |
+                    [[[ return entity ? entity.state.charAt(0).toUpperCase() + entity.state.slice(1) : '—'; ]]]
+                  variables:
+                    active: '[[[ return entity && ["cleaning", "returning"].includes(entity.state); ]]]'
+                    accent: '#26a69a'
+                    tint: rgba(38,166,154,0.14)
+                  tap_action:
+                    action: perform-action
+                    perform_action: vacuum.start
+                    target:
+                      entity_id: vacuum.robot_vacuum
+                  hold_action:
+                    action: perform-action
+                    perform_action: vacuum.return_to_base
+                    target:
+                      entity_id: vacuum.robot_vacuum
+                  double_tap_action:
+                    action: more-info
+
+                - type: custom:button-card
+                  template: qa_tile
+                  entity: switch.pool_pump
+                  name: Pool
+                  icon: mdi:pool
+                  label: '[[[ return entity && entity.state === "on" ? "Pump running" : "Off"; ]]]'
+                  variables:
+                    active: '[[[ return entity && entity.state === "on"; ]]]'
+                    accent: '#039be5'
+                    tint: rgba(3,155,229,0.14)
+                  tap_action:
+                    action: toggle
+
+                - type: custom:button-card
+                  template: qa_tile
+                  entity: switch.sprinklers
+                  name: Sprinklers
+                  icon: mdi:sprinkler-variant
+                  label: '[[[ return entity && entity.state === "on" ? "Watering" : "Idle"; ]]]'
+                  variables:
+                    active: '[[[ return entity && entity.state === "on"; ]]]'
+                    accent: '#43a047'
+                    tint: rgba(67,160,71,0.14)
+                  tap_action:
+                    action: toggle
+                    confirmation:
+                      text: Toggle the sprinklers?
+
+                - type: custom:button-card
+                  template: qa_tile
+                  entity: cover.garage_door
+                  name: Garage
+                  icon: mdi:garage
+                  label: |
+                    [[[ return entity ? entity.state.charAt(0).toUpperCase() + entity.state.slice(1) : '—'; ]]]
+                  variables:
+                    active: '[[[ return entity && entity.state !== "closed"; ]]]'
+                    accent: '#e53935'
+                    tint: rgba(229,57,53,0.12)
+                  tap_action:
+                    action: toggle
+                    confirmation:
+                      text: Open/close the garage door?
+
+      # ============================================================== ROOMS ==
+      - type: custom:button-card
+        template: panel
+        view_layout:
+          grid-area: rooms
+        triggers_update: all
+        variables:
+          title: Rooms
+          chevron: false
+          subtitle_color: '#555'
+          room_lights:
+            - light.kitchen
+            - light.living_room
+            - light.dining_room
+            - light.office
+            - light.lanai
+            - light.primary_bedroom
+            - light.primary_bathroom
+            - light.guest_bedroom
+            - light.bedroom_2
+            - light.hall_bathroom
+            - light.laundry
+          subtitle: |
+            [[[
+              const n = variables.room_lights.filter(e => states[e] && states[e].state === 'on').length;
+              return `<span style="float:right">${n} room${n === 1 ? '' : 's'} lit</span>`;
+            ]]]
+        custom_fields:
+          body:
+            card:
+              type: vertical-stack
+              cards:
+                - type: custom:button-card
+                  template: bare
+                  custom_fields:
+                    tabs:
+                      card:
+                        type: grid
+                        columns: 2
+                        square: false
+                        cards:
+                          - type: custom:button-card
+                            template: room_tab
+                            tap_action:
+                              action: perform-action
+                              perform_action: input_select.select_option
+                              target:
+                                entity_id: input_select.dashboard_room_tab
+                              data:
+                                option: Living
+                            variables:
+                              option: Living
+                              lights:
+                                - light.kitchen
+                                - light.living_room
+                                - light.dining_room
+                                - light.office
+                                - light.lanai
+                          - type: custom:button-card
+                            template: room_tab
+                            tap_action:
+                              action: perform-action
+                              perform_action: input_select.select_option
+                              target:
+                                entity_id: input_select.dashboard_room_tab
+                              data:
+                                option: Bedrooms & baths
+                            variables:
+                              option: Bedrooms & baths
+                              lights:
+                                - light.primary_bedroom
+                                - light.primary_bathroom
+                                - light.guest_bedroom
+                                - light.bedroom_2
+                                - light.hall_bathroom
+                                - light.laundry
+                  styles:
+                    card:
+                      - background: rgba(0,0,0,0.04)
+                      - border-radius: 14px
+                      - padding: 4px
+                      - margin-bottom: 8px
+                    grid:
+                      - grid-template-areas: '"tabs"'
+                    custom_fields:
+                      tabs:
+                        - width: 100%
+
+                - type: conditional
+                  conditions:
+                    - condition: state
+                      entity: input_select.dashboard_room_tab
+                      state_not: Bedrooms & baths
+                  card:
+                    type: grid
+                    columns: 2
+                    square: false
+                    cards:
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.kitchen
+                        name: Kitchen
+                        icon: mdi:silverware-fork-knife
+                        variables:
+                          temp: sensor.kitchen_temperature
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.living_room
+                        name: Living Room
+                        icon: mdi:television
+                        variables:
+                          temp: sensor.living_room_temperature
+                          media: media_player.living_room_tv
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.dining_room
+                        name: Dining Room
+                        icon: mdi:table-chair
+                        variables:
+                          temp: sensor.dining_room_temperature
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.office
+                        name: Office
+                        icon: mdi:desk
+                        variables:
+                          temp: sensor.office_temperature
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.lanai
+                        name: Lanai
+                        icon: mdi:palm-tree
+                        variables:
+                          temp: sensor.lanai_temperature
+                          media: media_player.lanai_north
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: cover.garage_door
+                        name: Garage
+                        icon: mdi:garage
+                        tap_action:
+                          action: more-info
+
+                - type: conditional
+                  conditions:
+                    - condition: state
+                      entity: input_select.dashboard_room_tab
+                      state: Bedrooms & baths
+                  card:
+                    type: grid
+                    columns: 2
+                    square: false
+                    cards:
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.primary_bedroom
+                        name: Primary Bedroom
+                        icon: mdi:bed-king-outline
+                        variables:
+                          temp: sensor.primary_bedroom_temperature
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.primary_bathroom
+                        name: Primary Bath
+                        icon: mdi:shower
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.guest_bedroom
+                        name: Guest Bedroom
+                        icon: mdi:bed-outline
+                        variables:
+                          temp: sensor.guest_bedroom_temperature
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.bedroom_2
+                        name: Bedroom 2
+                        icon: mdi:bed-single-outline
+                        variables:
+                          temp: sensor.bedroom_2_temperature
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.hall_bathroom
+                        name: Hall Bath
+                        icon: mdi:bathtub-outline
+                      - type: custom:button-card
+                        template: room_tile
+                        entity: light.laundry
+                        name: Laundry
+                        icon: mdi:washing-machine
+
+      # =========================================================== CALENDAR ==
+      - type: custom:button-card
+        template: panel
+        view_layout:
+          grid-area: calendar
+        triggers_update: all
+        tap_action:
+          action: navigate
+          navigation_path: /calendar
+        variables:
+          title: Calendar
+          subtitle_color: '#c77d12'
+          # Each calendar entity exposes its next upcoming event.
+          calendars:
+            - calendar.family
+            - calendar.b_will
+            - calendar.karla
+            - calendar.trash_recycling
+          subtitle: |
+            [[[
+              const today = new Date().toDateString();
+              const bin = variables.calendars.some(c => {
+                const s = states[c];
+                if (!s || !s.attributes.start_time) return false;
+                const d = new Date(s.attributes.start_time.replace(' ', 'T'));
+                return d.toDateString() === today && /trash|garbage|recycl|bin|yard waste/i.test(s.attributes.message || '');
+              });
+              return bin ? '<span style="float:right;font-weight:600">Trash day today</span>' : '';
+            ]]]
+        custom_fields:
+          body: |
+            [[[
+              const events = variables.calendars
+                .map(c => states[c])
+                .filter(s => s && s.attributes.message && s.attributes.start_time)
+                .map(s => ({
+                  title: s.attributes.message,
+                  start: new Date(s.attributes.start_time.replace(' ', 'T')),
+                  allDay: s.attributes.all_day,
+                  who: (s.attributes.friendly_name || '').replace(/ calendar$/i, ''),
+                }))
+                .sort((a, b) => a.start - b.start)
+                .slice(0, 4);
+              if (!events.length) return '<div class="empty">Nothing coming up</div>';
+              return events.map(e => {
+                const wd = e.start.toLocaleDateString(undefined, { weekday: 'short' });
+                const tm = e.allDay ? 'All day' : e.start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+                const mon = e.start.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+                return `<div class="ev">
+                  <div class="date"><b>${e.start.getDate()}</b><span>${mon}</span></div>
+                  <div class="txt"><b>${e.title}</b><span>${wd} · ${tm}${e.who ? ' · ' + e.who : ''}</span></div>
+                </div>`;
+              }).join('');
+            ]]]
+        extra_styles: |
+          .ev { display:flex; align-items:center; gap:12px; padding:8px; margin-bottom:8px; border-radius:16px;
+                background:rgba(0,0,0,0.03); text-align:left; }
+          .date { width:40px; height:44px; border-radius:12px; background:#fff; border:1px solid rgba(0,0,0,0.06);
+                  display:flex; flex-direction:column; align-items:center; justify-content:center; flex:none; }
+          .date b { font-size:17px; line-height:1; color:#1c1c1c; }
+          .date span { font-size:9px; letter-spacing:.06em; color:#888; margin-top:2px; }
+          .txt { display:flex; flex-direction:column; min-width:0; }
+          .txt b { font-size:14px; font-weight:600; color:#1c1c1c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .txt span { font-size:12px; color:#888; }
+          .empty { color:#888; font-size:13px; padding:8px; }
+
+      # ================================================================ CAR ==
+      - type: custom:button-card
+        template: panel
+        view_layout:
+          grid-area: car
+        entity: sensor.car_battery_level
+        triggers_update: all
+        tap_action:
+          action: more-info
+        variables:
+          title: Car
+          range: sensor.car_range
+          lock: lock.car_doors
+          charging: binary_sensor.car_charging
+          charge_limit: number.car_charge_limit
+          tracker: device_tracker.car
+          subtitle: |
+            [[[
+              const c = states[variables.charging];
+              if (c && ['on', 'charging'].includes(c.state)) return '<span style="float:right;color:#3a8ee6">Charging</span>';
+              const t = states[variables.tracker];
+              if (!t) return '';
+              const where = t.state === 'home' ? 'Parked at home' : t.state === 'not_home' ? 'Away' : t.state;
+              return `<span style="float:right">${where}</span>`;
+            ]]]
+        custom_fields:
+          body: |
+            [[[
+              const soc = entity ? parseFloat(entity.state) : NaN;
+              const r = states[variables.range];
+              const range = r && !isNaN(parseFloat(r.state)) ? `${Math.round(parseFloat(r.state))} ${r.attributes.unit_of_measurement || 'mi'} range` : '';
+              const l = states[variables.lock];
+              const locked = l && l.state === 'locked';
+              const lim = states[variables.charge_limit];
+              const pct = isNaN(soc) ? 0 : Math.max(0, Math.min(100, soc));
+              const bar = pct < 20 ? '#e53935' : pct < 40 ? '#f39c12' : '#2eaa5c';
+              return `
+                <div class="top">
+                  <div><div class="big">${isNaN(soc) ? '—' : Math.round(soc)}<sup>%</sup></div><div class="rng">${range}</div></div>
+                  <ha-icon class="car" icon="mdi:car-estate"></ha-icon>
+                </div>
+                <div class="bar"><div style="width:${pct}%;background:linear-gradient(90deg, ${bar}, ${bar}cc)"></div></div>
+                <div class="pills">
+                  ${l ? `<span class="pill" style="${locked ? 'background:#e9f6ee;color:#2a8a4c;border-color:#cfe9d8' : 'background:#fdecea;color:#c0392b;border-color:#f3c6c0'}">
+                    <ha-icon icon="${locked ? 'mdi:lock-outline' : 'mdi:lock-open-variant-outline'}"></ha-icon>${locked ? 'Locked' : 'Unlocked'}</span>` : ''}
+                  ${lim ? `<span class="pill"><ha-icon icon="mdi:ev-station"></ha-icon>Limit ${Math.round(parseFloat(lim.state))}%</span>` : ''}
+                </div>`;
+            ]]]
+        extra_styles: |
+          .top { display:flex; justify-content:space-between; align-items:center; text-align:left; }
+          .big { font-size:46px; font-weight:800; letter-spacing:-0.03em; line-height:1; color:#1c1c1c; }
+          .big sup { font-size:18px; font-weight:600; vertical-align:top; margin-left:2px; }
+          .rng { font-size:13px; color:#555; margin-top:4px; }
+          .car { --mdc-icon-size:72px; color:#6d6f66; }
+          .bar { height:10px; border-radius:6px; background:rgba(0,0,0,0.06); margin:14px 0; overflow:hidden; }
+          .bar div { height:100%; border-radius:6px; }
+          .pills { display:flex; gap:8px; flex-wrap:wrap; }
+
+      # ============================================================== MUSIC ==
+      - type: custom:button-card
+        template: panel
+        view_layout:
+          grid-area: music
+        entity: media_player.lanai_north
+        variables:
+          title: Music
+        tap_action:
+          action: more-info
+        custom_fields:
+          body: |
+            [[[
+              const a = entity ? entity.attributes : {};
+              const playing = entity && entity.state === 'playing';
+              const idle = !entity || ['off', 'idle', 'standby', 'unavailable'].includes(entity.state) || !a.media_title;
+              const art = a.entity_picture;
+              return `<div class="music">
+                <div class="disc ${playing ? 'spin' : ''}">
+                  ${art ? `<img src="${art}">` : ''}<span class="hole"></span>
+                </div>
+                <div class="meta">
+                  <b>${idle ? 'Nothing playing' : a.media_title}</b>
+                  <span>${idle ? 'Pick music in the library' : (a.media_artist || a.app_name || '')}</span>
+                  <span class="pill"><ha-icon icon="mdi:music-note-outline"></ha-icon>${a.friendly_name || 'Speaker'}</span>
+                </div>
+              </div>`;
+            ]]]
+          controls:
+            card:
+              type: horizontal-stack
+              cards:
+                - type: custom:button-card
+                  template: media_btn
+                  icon: mdi:skip-previous
+                  tap_action:
+                    action: perform-action
+                    perform_action: media_player.media_previous_track
+                    target:
+                      entity_id: media_player.lanai_north
+                - type: custom:button-card
+                  template: media_btn
+                  entity: media_player.lanai_north
+                  icon: '[[[ return entity && entity.state === "playing" ? "mdi:pause" : "mdi:play"; ]]]'
+                  tap_action:
+                    action: perform-action
+                    perform_action: media_player.media_play_pause
+                    target:
+                      entity_id: media_player.lanai_north
+                  styles:
+                    card:
+                      - width: 56px
+                      - height: 56px
+                      - background: linear-gradient(160deg, #b9a4f4, #8f6ee8)
+                      - border: none
+                      - box-shadow: 0 6px 16px rgba(143,110,232,0.4)
+                    icon:
+                      - color: '#fff'
+                      - width: 24px
+                - type: custom:button-card
+                  template: media_btn
+                  icon: mdi:skip-next
+                  tap_action:
+                    action: perform-action
+                    perform_action: media_player.media_next_track
+                    target:
+                      entity_id: media_player.lanai_north
+        styles:
+          grid:
+            - grid-template-areas: '"head" "body" "controls"'
+            - grid-template-rows: min-content 1fr min-content
+          custom_fields:
+            controls:
+              - justify-self: end
+              - width: 172px
+              - margin-top: -52px
+        extra_styles: |
+          .music { display:flex; align-items:center; gap:18px; text-align:left; }
+          .disc { position:relative; width:120px; height:120px; border-radius:50%; flex:none; overflow:hidden;
+                  background:radial-gradient(circle, #2b2a3a 0 30%, #14141c 31% 33%, #232231 34% 60%, #111118 61% 100%);
+                  box-shadow:0 10px 24px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; }
+          .disc img { position:absolute; width:56%; height:56%; border-radius:50%; object-fit:cover; }
+          .disc .hole { position:relative; width:10px; height:10px; border-radius:50%; background:#f2eefc; }
+          .disc.spin { animation: spin 6s linear infinite; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          .meta { display:flex; flex-direction:column; gap:4px; min-width:0; align-self:flex-start; padding-top:8px; }
+          .meta b { font-size:17px; color:#1c1c1c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .meta > span:not(.pill) { font-size:13px; color:#888; }
+          .meta .pill { align-self:flex-start; margin-top:6px; }
